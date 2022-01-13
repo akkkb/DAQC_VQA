@@ -62,5 +62,5 @@ if __name__ == '__main__':
     train_loader = DataLoader(train_dset, batch_size, shuffle=True, num_workers=4)
     eval_loader =  DataLoader(eval_dset, batch_size, shuffle=True, num_workers=4)
 
-    train(ques_cat, ques_att, img_att, Model, train_loader, eval_loader, args.epochs, args.output, num_task_train, num_task_val)
+    train(ques_cat, ques_att, img_att, Model, train_loader, eval_loader, args.epochs, args.output)
 
