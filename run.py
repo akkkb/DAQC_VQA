@@ -45,17 +45,15 @@ if __name__ == '__main__':
         Model[question_type.index(q_type)] = model
 
     constructor = 'build_baseline0_ques'
-    model_ques = getattr(base_model, constructor)(9318, 12, args.num_hid).cuda()
-    pytorch_1 = sum(p.numel() for p in model_ques.parameters())
-    print("Total for final classifier:",pytorch_1)
-
+    model_ques = getattr(base_model, constructor)(len(dictionary), len(question_type), args.num_hid).cuda()
+  
     constructor = 'build_baseline0_jr'
-    model = getattr(base_model, constructor)(9318, 1616, args.num_hid).cuda()
+    model = getattr(base_model, constructor)(len(dictionary), args.num_hid).cuda()
     model.w_emb.init_embedding('data/glove6b_init_300d.npy')
 
     args.model = 'rev_newatt'
     constructor = 'build_%s' % args.model
-    model_rev = getattr(base_model, constructor)(9318, 1616, args.num_hid).cuda()
+    model_rev = getattr(base_model, constructor)(9318, args.num_hid).cuda()
     model_rev.w_emb.init_embedding('data/glove6b_init_300d.npy')
 
     train_dset = VQAFeatureDatasetAll('train', dictionary)
