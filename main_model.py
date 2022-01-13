@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from attention import Attention, NewAttention, NewAttention_rev, StackedAttention
+from attention import Attention, ImgAttention, QuesAttention
 from language_model import WordEmbedding, QuestionEmbedding, WordEmbeddingNew
 from classifier import SimpleClassifier,distLinear
 from fc import FCNet
@@ -117,91 +117,36 @@ class BaseModel_rev(nn.Module):
 #         logits = self.classifier(joint_repr)
         return q_repr,att
 
-class BaseModel_transform(nn.Module):
-    def __init__(self, emb):
-        super(BaseModel_transform, self).__init__()
-        self.emb = emb
+def joint_emb(dataset, num_ans_candidates, num_hid):
+    w_emb = WordEmbedding(dataset, 300, 0.0)
+    q_emb = QuestionEmbedding(300, num_hid, 1, False, 0.0)
+    v_att = NewAttention(num_hid, q_emb.num_hid, num_hid)
+    q_net = FCNet([num_hid, num_hid])
+    v_net = FCNet([num_hid, num_hid])
+    return BaseModel_jr(w_emb, q_emb, v_att, q_net, v_net)
 
-    def forward(self, q):
-        """Forward
-        v: [batch, num_objs, obj_dim]
-        """
-        emb = self.emb(q)
-        return emb
-
-class StackedAttentionModel(nn.Module):
-    def __init__(self, w_emb, q_emb, v_att, classifier):
-        super(StackedAttentionModel, self).__init__()
-        self.w_emb = w_emb
-        self.q_emb = q_emb
-        self.v_att = v_att
-        self.classifier = classifier
-
-    def forward(self, v, q):
-        """Forward
-
-        v: [batch, num_objs, obj_dim]
-        b: [batch, num_objs, b_dim]
-        q: [batch_size, seq_length]
-
-        return: logits, not probs
-        """
-        w_emb = self.w_emb(q)
-        q_emb = self.q_emb(w_emb)  # [batch, q_dim]
-
-        att = self.v_att(v, q_emb)
-
-#        logits = self.classifier(att)
-        return att
-
-
-def build_baseline0_ques(dataset, num_ans_candidates, num_hid):
+def ques_cat(dataset, num_ans_candidates, num_hid):
     w_emb = WordEmbedding(dataset, 300, 0.0)
     q_emb = QuestionEmbedding(300, num_hid, 1, False, 0.0)
     q_net = FCNet([q_emb.num_hid, num_hid])
-    net = FCNet([2048, 1024])
+    net = FCNet([num_hid, num_hid])
     classifier = SimpleClassifier(num_hid, int(num_hid / 2), 12, 0.5)
     return BaseModel_ques(w_emb, q_emb, net, classifier)
 
-def build_baseline0_jr(dataset, num_ans_candidates, num_hid):
-    w_emb = WordEmbedding(dataset, 300, 0.0)
-    q_emb = QuestionEmbedding(300, num_hid, 1, False, 0.0)
-    v_att = NewAttention(2048, q_emb.num_hid, num_hid)
-    q_net = FCNet([num_hid, num_hid])
-    v_net = FCNet([2048, num_hid])
-    return BaseModel_jr(w_emb, q_emb, v_att, q_net, v_net)
-
-def build_baseline0_newatt(dataset, num_ans_candidates, num_hid):
+def image_att(dataset, num_ans_candidates, num_hid):
     w_emb = WordEmbedding(dataset, 300, 0.0)
     q_emb = QuestionEmbedding(300, num_hid, 1, False, 0.0)
     #v_att = NewAttention(dataset.v_dim, q_emb.num_hid, num_hid)
     q_net = FCNet([q_emb.num_hid, num_hid])
-    v_net = FCNet([2048, num_hid])
+    v_net = FCNet([num_hid, num_hid])
     classifier = SimpleClassifier(num_hid, num_hid * 2, num_ans_candidates, 0.5)
     return BaseModel(w_emb, q_emb, q_net, v_net, classifier)
 
-def build_rev_newatt(dataset, num_ans_candidates, num_hid):
+def ques_att(dataset, num_ans_candidates, num_hid):
     w_emb = WordEmbedding(dataset, 300, 0.0)
     q_emb = QuestionEmbedding(300, num_hid, 1, False, 0.0)
     v_att = NewAttention_rev(300, q_emb.num_hid, num_hid)
     q_net = FCNet([q_emb.num_hid, num_hid])
-    v_net = FCNet([2048, num_hid])
+    v_net = FCNet([num_hid, num_hid])
     classifier = SimpleClassifier(num_hid, num_hid * 2, num_ans_candidates, 0.5)
     return BaseModel_rev(w_emb, q_emb, v_att, q_net, classifier)
-
-def build_transform(dataset, num_hid):
-    emb = FCNet([num_hid, num_hid])
-    return BaseModel_transform(emb)
-
-def build_san(dataset, num_ans_candidates, num_hid):
-    w_emb = WordEmbeddingNew(dataset, 300, 0.0, 'c')
-    q_emb = QuestionEmbedding(600 , num_hid, 1, False, 0.0)
-    v_att = StackedAttention(2, 2048, num_hid, num_hid, num_ans_candidates,0.5)
-
-    # Loading tfidf weighted embedding
-#    if hasattr(args, 'tfidf'):
-#        w_emb = tfidf_loading(args.tfidf, w_emb, args, 'data_vqa')
-    classifier = SimpleClassifier(num_hid, 2 * num_hid, num_ans_candidates, 0.5)
-    return StackedAttentionModel(w_emb, q_emb, v_att, classifier)
-
-
