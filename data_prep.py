@@ -8,7 +8,6 @@ import h5py
 import torch
 from torch.utils.data import Dataset
 
-
 class DictionaryAll(object):
     def __init__(self, word2idx=None, idx2word=None):
         if word2idx is None:
@@ -72,21 +71,14 @@ def _create_entry(img, question, answer, q_type):
         'q_type'      : q_type}
     return entry
 
-
 def _load_dataset(dataroot, name, img_id2val):
-    """Load entries
-
-    img_id2val: dict {img_id -> val} val can be used to retrieve image or features
-    dataroot: root path of dataset
-    name: 'train', 'val'
-    """
 
     question_type= ['absurd','activity_recognition','attribute','color','counting', 'object_presence','object_recognition','positional_reasoning',
     'scene_recognition','sentiment_understanding','sport_recognition','utility_affordance']
 
     question_path = os.path.join(dataroot, 'OpenEnded_mscoco_%s2014_questions.json' % name)
     questions = sorted(json.load(open(question_path))['questions'],key=lambda x: x['question_id'])
-    answer_path = os.path.join(dataroot, 'cache_qs', '%s_target.pkl' % name)
+    answer_path = os.path.join(dataroot, '%s_target.pkl' % name)
     answers = cPickle.load(open(answer_path, 'rb'))
     answers = sorted(answers, key=lambda x: x['question_id'])
 
@@ -96,11 +88,9 @@ def _load_dataset(dataroot, name, img_id2val):
     	ans_type[i] = label
     	label += 1
 
-    a_qtype_root = '../../tools/data/'
-    a_qtype_path = os.path.join(a_qtype_root,'mscoco_%s2014_annotations.json' % name)
-    print(a_qtype_path)
-    a_qtype =  json.load(open(a_qtype_path))['annotations']
-    a_qtype = sorted(a_qtype, key=lambda x: x['question_id'])
+    ans_type_path = os.path.join(dataroot,'mscoco_%s2014_annotations.json' % name)
+    ans_type_inf =  json.load(open(ans_type_path ))['annotations']
+    ans_type_inf = sorted(a_qtype, key=lambda x: x['question_id'])
 
     utils.assert_eq(len(questions), len(answers))
     entries = []
@@ -111,52 +101,42 @@ def _load_dataset(dataroot, name, img_id2val):
         count=count+1
         nimg_id2val[int(key)]=img_id2val[key]
 
-    for question, answer, type in zip(questions, answers, a_qtype):
+    for question, answer, type in zip(questions, answers, ans_type_inf):
         utils.assert_eq(question['question_id'], answer['question_id'])
         utils.assert_eq(question['image_id'], answer['image_id'])
         utils.assert_eq(question['question_id'], type['question_id'])
         img_id = question['image_id']
         if img_id in nimg_id2val:
                 entries.append(_create_entry(nimg_id2val[img_id], question, answer, ans_type[type['question_type']]))
-
     return entries
 
 
 class VQAFeatureDatasetAll(Dataset):
-    def __init__(self, name, dictionary, dataroot='../../tools/data'):
+    def __init__(self, name, dictionary, dataroot='data'):
         super(VQAFeatureDatasetAll, self).__init__()
         assert name in ['train', 'val']
 
-        ans2label_path = os.path.join(dataroot, 'cache_qs', 'trainval_ans2label.pkl')
-        label2ans_path = os.path.join(dataroot, 'cache_qs', 'trainval_label2ans.pkl')
+        ans2label_path = os.path.join(dataroot, 'trainval_ans2label.pkl')
+        label2ans_path = os.path.join(dataroot, 'trainval_label2ans.pkl')
         self.ans2label = cPickle.load(open(ans2label_path, 'rb'))
         self.label2ans = cPickle.load(open(label2ans_path, 'rb'))
         self.num_ans_candidates = len(self.ans2label)
 
         self.dictionary = dictionary
-
         self.img_id2idx = cPickle.load(open(os.path.join(dataroot, 'frcnn_%s36_imgid2idx.pkl' % name),'rb'))
         print('\nloading features from h5 file')
         h5_path = os.path.join(dataroot, 'frcnn_%s36.hdf5' % name)
         with h5py.File(h5_path, 'r') as hf:
             int = hf['image_features']
             self.features = int[:,:,:]
-            #self.features = np.array(hf.get('image_features'))
 
         print("Features loaded !")
         self.entries = _load_dataset(dataroot, name, self.img_id2idx)
-
         self.tokenize()
         self.tensorize()
         self.v_dim = self.features.size(2)
 
-
     def tokenize(self, max_length=14):
-        """Tokenizes the questions.
-
-        This will add q_token in each entry of the dataset.
-        -1 represent nil, and should be treated as padding_idx in embedding
-        """
         for entry in self.entries:
             tokens = self.dictionary.tokenize(entry['question'], False)
             tokens = tokens[:max_length]
@@ -171,10 +151,8 @@ class VQAFeatureDatasetAll(Dataset):
         self.features = torch.from_numpy(self.features)
 
         for entry in self.entries:
-
             question = torch.from_numpy(np.array(entry['q_token']))
             entry['q_token'] = question
-
             answer = entry['answer']
             labels = np.array(answer['labels'])
             question_type = np.array(entry['q_type'])
@@ -191,7 +169,7 @@ class VQAFeatureDatasetAll(Dataset):
 
     def __getitem__(self, index):
         entry = self.entries[index]
-        features = self.features[entry['image']]
+        img_features = self.features[entry['image']]
         question = entry['q_token']
         answer = entry['answer']
         labels = answer['labels']
