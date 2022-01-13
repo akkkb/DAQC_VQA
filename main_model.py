@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from attention import Attention, ImgAttention, QuesAttention
-from language_model import WordEmbedding, QuestionEmbedding, WordEmbeddingNew
-from classifier import SimpleClassifier,distLinear
+from attention import ImgAttention, QuesAttention
+from language_model import WordEmbedding, QuestionEmbedding
+from classifier import SimpleClassifier
 from fc import FCNet
 
 class ImgAtt(nn.Module):
@@ -56,8 +56,8 @@ class AnsPred(nn.Module):
     def forward(self, emb):
         ans = self.classifier(emb)
 
-def ques_cat(dataset, num_hid):
-    classifier = SimpleClassifier(num_hid, int(num_hid / 2), 12, 0.5)
+def ques_cat(dataset, nc, num_hid):
+    classifier = SimpleClassifier(num_hid, int(num_hid / 2), nc, 0.5)
     return QuesCat(w_emb, q_emb, net, classifier)
 
 def image_att(dataset, num_hid):
@@ -76,6 +76,6 @@ def ques_att(dataset, num_hid):
     v_net = FCNet([num_hid, num_hid])
     return QuesAtt(w_emb, q_emb, v_att, q_net)
 
-def build_qus(dataset, num_ans_candidates, num_hid):
+def ans_pred(dataset, num_ans_candidates, num_hid):
     classifier = SimpleClassifier(num_hid, num_hid, num_ans_candidates, 0.5)
     return AnsPred(classifier)
