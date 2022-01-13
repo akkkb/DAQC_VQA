@@ -56,7 +56,7 @@ def train(ques_cat, ques_att, img_att, Model, train_loader, eval_loader, num_epo
     for i in range(len(question_type)):
         ls_params += list(Model[i].parameters())
 
-    ls_params += listques_cat.parameters())
+    ls_params += list(ques_cat.parameters())
     ls_params += list(ques_att.parameters())
     ls_params += list(img_att.parameters())
 
@@ -155,7 +155,6 @@ def train(ques_cat, ques_att, img_att, Model, train_loader, eval_loader, num_epo
 
         for m in Model:
             Model[m].train(False)
-
         model.train(False)
         model_ques.train(False)
         model_rev.train(False)
@@ -171,11 +170,9 @@ def train(ques_cat, ques_att, img_att, Model, train_loader, eval_loader, num_epo
 
         for m in Model:
                 Model[m].train(True)
-
         model.train(True)
         model_ques.train(True)
         model_rev.train(True)
-
 
         logger.write('\n\teval score: \t\t ----->  %.2f' % (eval_score * 100))
 
@@ -194,15 +191,15 @@ def train(ques_cat, ques_att, img_att, Model, train_loader, eval_loader, num_epo
     logger.write('\n\t Best Evaluation score is obtained at epoch %d : %.2f' %(epc,best_eval_score * 100))
 
 
-def evaluate(model_ques, model_rev, model, Model,dataloader):
+def evaluate(ques_cat, ques_att, img_att, Model,dataloader):
     score = 0
     upper_bound = 0
     num_data = 0
 
-    with open('../../tools/data/cache_qs/class_index_map.pkl',"rb") as map_fl:
+    with open('data/class_index_map.pkl',"rb") as map_fl:
         class_index_map = cPickle.load(map_fl)
 
-    question_type= ['absurd','activity_recognition','attribute','color','counting', 'object_presence','object_recognition','positional_reasoning',
+    question_type = ['absurd','activity_recognition','attribute','color','counting', 'object_presence','object_recognition','positional_reasoning',
     'scene_recognition','sentiment_understanding','sport_recognition','utility_affordance']
 
 
@@ -218,34 +215,28 @@ def evaluate(model_ques, model_rev, model, Model,dataloader):
             v = v.cuda()
             a = a.cuda()
             q = q.cuda()
-            type_onehot = _to_one_hot(type_, 12 , dtype=torch.cuda.FloatTensor)
+            type_onehot = _to_one_hot(type_, len(question_type) , dtype=torch.cuda.FloatTensor)
 
-        v_feat, emb = model(v,q,None)
-        q_feat, att = model_rev(v_feat, q, None)
-        emb_att = v_feat * q_feat
-        ques_pred = model_ques(emb, None)
+        v_feat, att_v = model(v, q, None)
+        q_feat, att_q = model_rev(v_feat, q, None)
+        inp_emb = v_feat * q_feat
+        ques_pred = ques_cat(inp_emb, None)
+        ques_cat_ind = F.softmax(ques_pred, dim=1)
+        max_indx = torch.argmax(ques_cat_ind, dim=1)
+        one_hot = _to_one_hot(max_indx, len(question_type), dtype=torch.cuda.FloatTensor)
 
-#        ques_pred = model_ques(q_feat, None)
-        ss = F.softmax(ques_pred, dim=1)
-        max_indx = torch.argmax(ss,dim=1)
-        one_hot = _to_one_hot(max_indx, 12 , dtype=torch.cuda.FloatTensor)
-
-        batch_score = compute_score_with_logits(ques_pred, type_onehot).sum()
+        batch_score_ques = compute_score_with_logits(ques_pred, type_onehot).sum()
         ques_score += batch_score
-
-        a_gt_tensor = {}
+        ans_gt = {}
         pred = {}
 
-        ind = torch.argmax(ss,dim=1)
-
-#        emb = v_feat * q_feat
         for m in Model:
-            pred[m] = Model[m](one_hot[:,m].unsqueeze(1) * emb_att)
+            pred[m] = Model[m](one_hot[:,m].unsqueeze(1) * inp_emb)
             tmp_indx = torch.tensor(class_index_map[question_type[m]])
             tmp_indx = Variable(tmp_indx).cuda()
             tmp_tnst = torch.index_select(a,1,tmp_indx)
-            a_gt_tensor[m] = Variable(tmp_tnst).cuda()
-            bs_p, bs_a = compute_score_with_logits_inclass(pred[m], a_gt_tensor[m].data, type_, m)
+            ans_gt[m] = Variable(tmp_tnst).cuda()
+            bs_p, bs_a = compute_score_with_logits_inclass(pred[m], ans_gt[m].data, type_, m)
             val_score[question_type[m]][0] += bs_p
             val_score[question_type[m]][1] += bs_a
 
@@ -256,12 +247,9 @@ def evaluate(model_ques, model_rev, model, Model,dataloader):
         num += val_score[itm][0]
         den += val_score[itm][1]
 
-    print("\n\tEval Predicted is: %d" %(num))
-    print("\n\tEval Actual is: %d" %(den))
-
     ques_score = ques_score / len(dataloader.dataset)
     ques_score = ques_score * 100
     score = num / den
 
-    return ques_score,score,val_score
+    return ques_score, score, val_score
 
