@@ -8,7 +8,6 @@ from torch.autograd import Variable
 import _pickle as cPickle
 import numpy as np
 import statistics
-from torch.optim.lr_scheduler import MultiStepLR
 
 def _to_one_hot(y, n_dims, dtype=torch.cuda.FloatTensor):
     scatter_dim = len(y.size())
