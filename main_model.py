@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from attention import ImgAttention, QuesAttention
-from language_model import WordEmbedding, QuestionEmbedding
+from text_model import WordEmbedding, QuestionEmbedding
 from classifier import SimpleClassifier
 from fc import FCNet
 
