@@ -250,6 +250,5 @@ def evaluate(ques_cat, ques_att, img_att, Model,dataloader):
     ques_score = ques_score / len(dataloader.dataset)
     ques_score = ques_score * 100
     score = num / den
-
     return ques_score, score, val_score
 
