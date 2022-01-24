@@ -7,6 +7,6 @@ This repository uses [Bottom-Up and Top-Down Attention for Visual Question Answe
 
 # Instructions
 1. Execute as: python3 run.py <br>
-2. After execution model and results log will be saved in 'result/' directory. <br>
+2. After execution all models and results log will be saved in 'result/' directory. <br>
 3. All data should be placed inside 'data/' directory.
 
