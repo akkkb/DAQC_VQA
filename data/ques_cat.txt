@@ -1,1 +1,5 @@
+question_type= ['absurd','activity_recognition','attribute','color','counting',
+              'object_presence','object_recognition','positional_reasoning',
+              'scene_recognition','sentiment_understanding','sport_recognition','utility_affordance']
 
+question_type= ['binary','number','other']
